@@ -1,0 +1,95 @@
+
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Función para calcular probabilidad implícita
+def calcular_probabilidad_implicita(cuota):
+    return (1 / cuota) * 100
+
+# Función para calcular Criterio de Kelly
+def criterio_kelly(cuota, probabilidad, bankroll):
+    b = cuota - 1
+    q = 1 - probabilidad
+    f_star = (b * probabilidad - q) / b
+    apuesta_optima = max(0, f_star * bankroll)  # No apostar si f_star es negativa
+    return f_star, apuesta_optima
+
+# Validación de apuesta de valor
+def apuesta_de_valor(probabilidad_calculada, probabilidad_implicita):
+    return probabilidad_calculada > probabilidad_implicita
+
+# Cálculo del valor esperado
+def calcular_valor_esperado(probabilidad, cuota):
+    return (probabilidad * cuota - 1) * 100
+
+# Crear la app Streamlit
+def main():
+    st.title("Calculadora de Apuestas - Criterio de Kelly")
+    st.write("💡 Esta calculadora te ayudará a calcular la mejor apuesta óptima utilizando el Criterio de Kelly.")
+
+    # Entrada de datos por parte del usuario
+    st.sidebar.header("Datos de entrada")
+    num_apuestas = st.sidebar.number_input("Número de apuestas a calcular:", min_value=1, max_value=20, value=1)
+
+    datos = []
+    for i in range(num_apuestas):
+        st.sidebar.subheader(f"Apuesta {i+1}")
+        cuota = st.sidebar.number_input(f"Cuota (Apuesta {i+1}):", min_value=1.01, step=0.01, value=1.50, key=f"cuota_{i}")
+        probabilidad = st.sidebar.number_input(f"Probabilidad estimada (en %):", min_value=1.0, max_value=100.0, value=50.0, key=f"prob_{i}")
+        bankroll = st.sidebar.number_input(f"Bankroll disponible ($):", min_value=1.0, value=1000.0, key=f"bankroll_{i}")
+        datos.append({"Cuota": cuota, "Probabilidad": probabilidad, "Bankroll": bankroll})
+
+    # Convertir a DataFrame
+    datos_df = pd.DataFrame(datos)
+
+    # Procesar datos
+    resultados = []
+    for _, fila in datos_df.iterrows():
+        cuota = fila['Cuota']
+        probabilidad_calculada = fila['Probabilidad'] / 100
+        bankroll = fila['Bankroll']
+
+        # Cálculos
+        probabilidad_implicita = calcular_probabilidad_implicita(cuota)
+        tiene_valor = apuesta_de_valor(probabilidad_calculada, probabilidad_implicita)
+        porcentaje_apuesta, monto_apuesta = criterio_kelly(cuota, probabilidad_calculada, bankroll)
+        valor_esperado = calcular_valor_esperado(probabilidad_calculada, cuota)
+
+        # Agregar resultados
+        resultados.append({
+            "Cuota": cuota,
+            "Probabilidad de Éxito (%)": fila['Probabilidad'],
+            "Bankroll": bankroll,
+            "Apuesta Óptima ($)": round(monto_apuesta, 2),
+            "Porcentaje de la Apuesta (%)": round(porcentaje_apuesta * 100, 2),
+            "Valor Esperado (%)": round(valor_esperado, 2),
+            "Apuesta de Valor": "Sí" if tiene_valor else "No"
+        })
+
+    # Mostrar resultados
+    resultados_df = pd.DataFrame(resultados)
+    st.subheader("Resultados")
+    st.dataframe(resultados_df)
+
+    # Gráficos
+    st.subheader("Visualizaciones")
+    if not resultados_df.empty:
+        # Gráfico de Apuesta Óptima
+        fig, ax = plt.subplots()
+        ax.bar(resultados_df["Cuota"], resultados_df["Apuesta Óptima ($)"], color='skyblue')
+        ax.set_title("Apuesta Óptima por Cuota")
+        ax.set_xlabel("Cuota")
+        ax.set_ylabel("Apuesta Óptima ($)")
+        st.pyplot(fig)
+
+        # Gráfico de Valor Esperado
+        fig, ax = plt.subplots()
+        ax.plot(resultados_df["Cuota"], resultados_df["Valor Esperado (%)"], marker='o', color='green')
+        ax.set_title("Valor Esperado (%) por Cuota")
+        ax.set_xlabel("Cuota")
+        ax.set_ylabel("Valor Esperado (%)")
+        st.pyplot(fig)
+
+if __name__ == "__main__":
+    main()
